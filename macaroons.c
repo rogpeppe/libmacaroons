@@ -1395,8 +1395,12 @@ json_help_copy_kv_packet(struct json_object* obj,
         return -1;
     }
 
-    if (!json_object_object_get_ex(obj, key, &child) ||
-        !json_object_is_type(child, json_type_string))
+    if (!json_object_object_get_ex(obj, key, &child))
+    {
+        // The field does not exist in the JSON - ignore it.
+        return 0;
+    }
+    if (!json_object_is_type(child, json_type_string))
     {
         *err = MACAROON_INVALID;
         return -1;
@@ -1510,7 +1514,6 @@ macaroon_deserialize_json(const char* data, size_t data_sz,
     {
         cav = json_object_array_get_idx(arr, idx);
         
-        /* TODO deserialize caveat vid and location. */
         if (!cav || !json_object_is_type(cav, json_type_object))
         {
             free(M);
@@ -1519,12 +1522,28 @@ macaroon_deserialize_json(const char* data, size_t data_sz,
             *err = MACAROON_INVALID;
             return NULL;
         }
-          
         if (json_help_copy_kv_packet(cav, CID, create_cid_packet, &M->caveats[idx].cid, ENCODING_RAW, &ptr, err) < 0)
         {
             free(M);
             json_object_put(obj);
             json_tokener_free(tok);
+            *err = MACAROON_INVALID;
+            return NULL;
+        }
+        if (json_help_copy_kv_packet(cav, VID, create_vid_packet, &M->caveats[idx].vid, ENCODING_BASE64, &ptr, err) < 0)
+        {
+            free(M);
+            json_object_put(obj);
+            json_tokener_free(tok);
+            *err = MACAROON_INVALID;
+            return NULL;
+        }
+        if (json_help_copy_kv_packet(cav, CL, create_cl_packet, &M->caveats[idx].cl, ENCODING_RAW, &ptr, err) < 0)
+        {
+            free(M);
+            json_object_put(obj);
+            json_tokener_free(tok);
+            *err = MACAROON_INVALID;
             return NULL;
         }
     }
